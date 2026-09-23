@@ -1,10 +1,11 @@
 (ns association.facts-test
-  (:require [clojure.test :refer [deftest is]]
-            [association.facts :as facts]))
+  (:require [clojure.test :refer [deftest is testing]]
+            [association.facts :as facts]
+            [clojure.string :as str]))
 
 (deftest kam-has-spec-basis
   (let [sb (facts/spec-basis "kam")]
-    (is (= 2 (count sb)))
+    (is (= 15 (count sb)))
     (is (every? #(= "9411" (:association-rule/isic %)) sb))
     (is (every? #(= "KEN" (:association-rule/country %)) sb))))
 
@@ -19,6 +20,52 @@
     (is (= ["ibec"] (:missing-associations c)))))
 
 (deftest by-topic-filters
-  (is (= 2 (count (facts/by-topic "kam" :governance))))
+  (is (= 6 (count (facts/by-topic "kam" :governance))))
+  (is (= 4 (count (facts/by-topic "kam" :membership))))
+  (is (= 3 (count (facts/by-topic "kam" :training))))
+  (is (= 2 (count (facts/by-topic "kam" :policy))))
+  (is (= 2 (count (facts/by-topic "kam" :history))))
+  (is (= 1 (count (facts/by-topic "kam" :regional))))
   (is (empty? (facts/by-topic "kam" :labor)))
   (is (empty? (facts/by-topic "ibec" :governance))))
+
+(deftest every-entry-is-individually-addressable
+  ;; A catalog that reused an id would let one entry shadow another under
+  ;; :db.unique/identity, and the count assertions above would not notice.
+  (let [sb (facts/spec-basis "kam")]
+    (is (= (count sb) (count (into #{} (map :association-rule/id sb)))))
+    (is (every? #(re-matches #"kam\.[a-z0-9-]+" (:association-rule/id %)) sb))))
+
+(deftest every-entry-carries-a-source-and-says-whose-it-is
+  ;; The label has to match the host: an :official-kam-co-ke entry that
+  ;; points anywhere but kam.co.ke is a first-party claim nobody made.
+  (doseq [e (facts/spec-basis "kam")]
+    (testing (:association-rule/id e)
+      (is (re-matches #"https://\S+" (:association-rule/url e)))
+      (is (= ({:mfg-outlook-corroborated "www.mfg-outlook.com"
+               :official-kam-co-ke "kam.co.ke"}
+              (:association-rule/url-provenance e))
+             (second (re-find #"^https://([^/]+)/" (:association-rule/url e)))))
+      (is (seq (:association-rule/source-quote e)))
+      (is (seq (:association-rule/topic e)))
+      (is (re-matches #"\d{4}-\d{2}-\d{2}" (:association-rule/retrieved-at e))))))
+
+(deftest a-dated-entry-quotes-its-date
+  ;; The year of every dated entry is in its own quote; an undated entry says
+  ;; why instead of silently carrying nothing.
+  (doseq [e (facts/spec-basis "kam")]
+    (testing (:association-rule/id e)
+      (if-let [d (or (:association-rule/established-date e)
+                     (:association-rule/last-revised-date e))]
+        (is (str/includes? (:association-rule/source-quote e) (subs d 0 4)))
+        (is (keyword? (:association-rule/date-unknown-because e)))))))
+
+(deftest the-secondary-source-is-still-named-as-such
+  ;; kam.co.ke was unreachable over TLS when this catalog was first seeded, so
+  ;; everything then rested on Manufacturing Outlook. It answers now, and only
+  ;; the Chairman's interview is kept, as corroboration of the founding year.
+  ;; The number is pinned: a later tick that cites a secondary source for
+  ;; something new has to come here and say so.
+  (let [by-prov (frequencies (map :association-rule/url-provenance (facts/spec-basis "kam")))]
+    (is (= 1 (:mfg-outlook-corroborated by-prov)))
+    (is (= 14 (:official-kam-co-ke by-prov)))))
