@@ -34,15 +34,21 @@ municipality
 ([`cloud-itonami-municipality-ken-nairobi`](https://github.com/cloud-itonami/cloud-itonami-municipality-ken-nairobi)),
 and association (this repo).
 
-`kam.co.ke`'s own domain returned a TLS certificate-verification
-error on every page tried this tick (both bare and `www` hostnames).
-The 1959 founding was instead directly WebFetch-verified against
-Manufacturing Outlook's KAM spotlight article, which quotes KAM's own
-Chairman verbatim. The 2009 golden-jubilee rebrand is
-WebSearch-corroborated only (zero conflicting alternative date,
-internally consistent with 1959+50) — matching this session's
-established pattern for cases with no successfully-rendered primary
-alternative.
+Fourteen of the fifteen entries cite `kam.co.ke` itself (About Us,
+Sectors Profile, Regional Offices, Membership Categories, the CEEC and
+CGGCC centres, Women in Manufacturing, the Manufacturing Academy and the
+TVET programme). The one exception is Manufacturing Outlook's interview
+with KAM's Chairman, kept as independent corroboration of the 1959
+founding year.
+
+When this catalog was first seeded (2026-07-17) `kam.co.ke` returned a
+TLS certificate-verification error on every page tried, so both entries
+then rested on Manufacturing Outlook, and the second — a 2009
+golden-jubilee rebrand — rested on web-search results alone. On
+2026-09-24 `kam.co.ke` answered over verified TLS. The rebrand entry was
+**removed**: no page on `kam.co.ke` or Manufacturing Outlook checked
+that day describes it, and an entry with no page and no quote cannot be
+checked against anything.
 
 ## Scope
 
@@ -55,11 +61,41 @@ fabricate one.
 
 ## Data
 
-- `src/association/facts.cljc` — the catalog, source of truth.
+- `data/datascript-tx.edn` — the catalog, **source of truth**. Facts are
+  authored here and nowhere else. Query it alongside other
+  `cloud-itonami`/`etzhayyim` compliance-fact sources via
+  `com-junkawasaki/root`'s `scripts/compliance-fact-query.cljk`.
+- `src/association/facts.kotoba` — the Clojure reading, **generated**.
+- `src/association_facts.kotoba` — the Kotoba port, **generated**; compiles
+  with `amu compile src/association_facts.kotoba --target js|wasm32-browser|x86_64-linux|aarch64-macos`.
 - `schema/association-rule.edn` — DataScript schema.
-- `data/datascript-tx.edn` — derived DataScript tx-data (query this
-  alongside other `cloud-itonami`/`etzhayyim` compliance-fact sources via
-  `com-junkawasaki/root`'s `scripts/compliance-fact-query.cljs`).
+
+Every entry carries the page it came from (`:source-article`) and the
+verbatim span the claim rests on (`:source-quote`). To change the catalog:
+
+```bash
+# 1. edit data/datascript-tx.edn, then regenerate both readings
+kbb --backend sci scripts/gen-kotoba-port.cljk
+kbb --backend sci scripts/gen-kotoba-port.cljk --check   # exit 1 if either reading drifted
+
+# 2. check the catalog against its own sources
+kbb --backend sci scripts/verify-catalog.cljk            # structural, offline
+kbb --backend sci scripts/verify-catalog.cljk --live     # fetch every :url, require every quote
+```
+
+`verify-catalog` exits `0` (checked, nothing wrong), `1` (findings
+printed) or `2` (REFUSED — could not check, e.g. a source did not
+answer 2xx). A `2` is not a pass.
+
+Every page on `kam.co.ke` carries the same navigation menu and footer
+("the voice of manufacturing in Kenya since 1959"), so a quote copied
+from those would be "on" every page and support nothing. Quotes are
+taken from each page's own body, and `--live` fetches a path that
+cannot exist on each origin as a soft-404 control.
+
+`kbb -M:test` finds no test namespace in this repository (the tests are
+`.kotoba` since the 2026-09-10 rename), so `--check` and `--live` are
+the gates that actually run here.
 
 ## License
 
