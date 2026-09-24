@@ -51,7 +51,7 @@
 ;; 2026-09-24, www.mfg-outlook.com answers 403 to a bare "Mozilla/5.0" and 200
 ;; to this one. A 403 here is a refusal (exit 2), not a finding.
 (ns verify-catalog
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.string :as str]
             ["fs" :as fs]
             ["os" :as os]
